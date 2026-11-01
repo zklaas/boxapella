@@ -1,0 +1,40 @@
+{
+  "boxapella": 1,
+  "name": "Main + lower third",
+  "description": "A main inset above a band for a title or caption.",
+  "background": "#111116",
+  "gap": 0,
+  "border": {
+    "width": 0,
+    "color": "#ffffff"
+  },
+  "slots": [
+    {
+      "id": "1",
+      "label": "Main",
+      "rect": [
+        0,
+        0,
+        1,
+        0.82
+      ]
+    }
+  ],
+  "regions": [
+    {
+      "id": "caption",
+      "kind": "text",
+      "rect": [
+        0,
+        0.82,
+        1,
+        0.18
+      ],
+      "text": "Title of the song",
+      "fill": "#1d1d28",
+      "color": "#ffffff",
+      "size": 0.06,
+      "align": "center"
+    }
+  ]
+}

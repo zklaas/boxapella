@@ -1,0 +1,44 @@
+{
+  "boxapella": 1,
+  "name": "Feature + two",
+  "description": "One large inset on the left and two stacked on the right.",
+  "background": "#111116",
+  "gap": 8,
+  "border": {
+    "width": 0,
+    "color": "#ffffff"
+  },
+  "slots": [
+    {
+      "id": "1",
+      "label": "Feature",
+      "rect": [
+        0,
+        0,
+        0.6667,
+        1
+      ]
+    },
+    {
+      "id": "2",
+      "label": "Upper right",
+      "rect": [
+        0.6667,
+        0,
+        0.3333,
+        0.5
+      ]
+    },
+    {
+      "id": "3",
+      "label": "Lower right",
+      "rect": [
+        0.6667,
+        0.5,
+        0.3333,
+        0.5
+      ]
+    }
+  ],
+  "regions": []
+}

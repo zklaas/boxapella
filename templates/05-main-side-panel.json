@@ -1,0 +1,40 @@
+{
+  "boxapella": 1,
+  "name": "Main + side panel",
+  "description": "A main inset taking most of the screen, with a title panel down the right side.",
+  "background": "#111116",
+  "gap": 0,
+  "border": {
+    "width": 0,
+    "color": "#ffffff"
+  },
+  "slots": [
+    {
+      "id": "1",
+      "label": "Main",
+      "rect": [
+        0,
+        0,
+        0.75,
+        1
+      ]
+    }
+  ],
+  "regions": [
+    {
+      "id": "panel",
+      "kind": "text",
+      "rect": [
+        0.75,
+        0,
+        0.25,
+        1
+      ],
+      "text": "Boxapella",
+      "fill": "#1d1d28",
+      "color": "#ffffff",
+      "size": 0.05,
+      "align": "center"
+    }
+  ]
+}

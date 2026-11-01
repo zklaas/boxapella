@@ -1,0 +1,34 @@
+{
+  "boxapella": 1,
+  "name": "Side by side",
+  "description": "The screen split into left and right halves.",
+  "background": "#111116",
+  "gap": 8,
+  "border": {
+    "width": 0,
+    "color": "#ffffff"
+  },
+  "slots": [
+    {
+      "id": "1",
+      "label": "Left",
+      "rect": [
+        0,
+        0,
+        0.5,
+        1
+      ]
+    },
+    {
+      "id": "2",
+      "label": "Right",
+      "rect": [
+        0.5,
+        0,
+        0.5,
+        1
+      ]
+    }
+  ],
+  "regions": []
+}

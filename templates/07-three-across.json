@@ -1,0 +1,44 @@
+{
+  "boxapella": 1,
+  "name": "Three across",
+  "description": "Three tall insets side by side.",
+  "background": "#111116",
+  "gap": 8,
+  "border": {
+    "width": 0,
+    "color": "#ffffff"
+  },
+  "slots": [
+    {
+      "id": "1",
+      "label": "Left",
+      "rect": [
+        0,
+        0,
+        0.3333,
+        1
+      ]
+    },
+    {
+      "id": "2",
+      "label": "Centre",
+      "rect": [
+        0.3333,
+        0,
+        0.3333,
+        1
+      ]
+    },
+    {
+      "id": "3",
+      "label": "Right",
+      "rect": [
+        0.6667,
+        0,
+        0.3333,
+        1
+      ]
+    }
+  ],
+  "regions": []
+}

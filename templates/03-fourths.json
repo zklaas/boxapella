@@ -1,0 +1,54 @@
+{
+  "boxapella": 1,
+  "name": "Fourths (2×2)",
+  "description": "The screen divided into four quadrants.",
+  "background": "#111116",
+  "gap": 8,
+  "border": {
+    "width": 0,
+    "color": "#ffffff"
+  },
+  "slots": [
+    {
+      "id": "1",
+      "label": "Top left",
+      "rect": [
+        0,
+        0,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "2",
+      "label": "Top right",
+      "rect": [
+        0.5,
+        0,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "3",
+      "label": "Bottom left",
+      "rect": [
+        0,
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "4",
+      "label": "Bottom right",
+      "rect": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ]
+    }
+  ],
+  "regions": []
+}

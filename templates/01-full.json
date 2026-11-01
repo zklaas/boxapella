@@ -1,0 +1,24 @@
+{
+  "boxapella": 1,
+  "name": "Full screen",
+  "description": "One inset filling the screen.",
+  "background": "#111116",
+  "gap": 0,
+  "border": {
+    "width": 0,
+    "color": "#ffffff"
+  },
+  "slots": [
+    {
+      "id": "1",
+      "label": "Main",
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ]
+    }
+  ],
+  "regions": []
+}
