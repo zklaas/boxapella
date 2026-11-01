@@ -7,6 +7,8 @@
   boxapella cameras [--measure]       list cameras ffmpeg can record from (--measure: real frame rate)
   boxapella import PROJECT VIDEO [--slot ID]
                                       add a video file as a take
+  boxapella music PROJECT FILE [--image PIC] [--slot ID] [--no-line-up]
+                                      add music (audio or MIDI) with a picture, lined up with the singing
   boxapella export PROJECT OUT.mp4 [--size 1920x1080|1280x720]
                                       render the master video without the GUI
   boxapella calibrate                 measure audio latency (speakers, not headphones)
@@ -77,6 +79,24 @@ def main(argv=None) -> int:
         pr = project.load(a.project)
         t = project.import_video(pr, a.video, a.slot or pr.first_empty_slot(), _bar)
         print(f"\n{t.id} ({t.duration:.2f} s) in inset {t.slot}")
+        return 0
+    if cmd == "music":
+        from app import music, project
+        ap = argparse.ArgumentParser(prog="boxapella music")
+        ap.add_argument("project")
+        ap.add_argument("music", help="audio or MIDI file")
+        ap.add_argument("--image", default="", help="picture to show (default: a plain frame)")
+        ap.add_argument("--slot", default="")
+        ap.add_argument("--no-line-up", action="store_true", help="don't line it up with the singing")
+        a = ap.parse_args(argv[1:])
+        pr = project.load(a.project)
+        t, off, conf = music.import_music(pr, a.music, a.slot or pr.first_empty_slot(), a.image,
+                                          not a.no_line_up, _bar)
+        print(f"
+{t.id} ({t.duration:.2f} s) in inset {t.slot}")
+        if not a.no_line_up:
+            print(f"lined up: music cut by {off:.3f} s (confidence {conf:.2f})" if off is not None else
+                  f"not lined up: no clear match (confidence {conf:.2f})")
         return 0
     if cmd == "export":
         from app import compose, project

@@ -12,6 +12,7 @@ Runs on Linux and Windows; see [WINDOWS.md](WINDOWS.md) for installing on Window
     boxapella templates                 list layout templates
     boxapella cameras                   list cameras ffmpeg can record from
     boxapella import PROJECT VIDEO [--slot ID]
+    boxapella music PROJECT FILE [--image PIC] [--slot ID] [--no-line-up]
     boxapella export PROJECT OUT.mp4 [--size 1920x1080|1280x720]
     boxapella calibrate                 measure audio latency (speakers, not headphones)
 
@@ -36,6 +37,33 @@ Recording into an inset that already has a take keeps the old take as an
 alternate. Pick it again under *Take*. **File → Delete takes not in an inset…** cleans them up.
 **Import video…** puts an existing video file into the selected inset instead
 of recording.
+
+### Music in an inset
+
+**File → Import music…** (Ctrl+M) puts a piece of music into the selected inset,
+for example the accompaniment you sang along to:
+
+* **Music**: an audio file (WAV, MP3, FLAC, OGG, M4A, …) or a MIDI file. MIDI is
+  played with FluidSynth and a General MIDI SoundFont. On Linux, install them with
+  `sudo apt install fluidsynth fluid-soundfont-gm`. On Windows, Boxapella also
+  finds the copy that the Lorenzo suite's `plugplay get-synth` downloads. Other
+  locations can be set as `"fluidsynth"` and `"soundfont"` in the settings file.
+* **Picture** (optional): shown for the whole piece, fitted into the inset
+  without cropping. Without one, the inset shows a plain frame.
+* **Timing**, one of two:
+  * *Fit it to the singing already recorded* finds where your singing sits in
+    the music, by matching the notes sounding in each, and cuts or pads the
+    music's start to match. It finds one offset for the whole piece, so it
+    assumes you sang at the music's tempo, for instance along to it. If there's
+    no clear match, the music is left at the start and you're told. Fine-tune
+    with the *Offset* column.
+  * *Bring it in as it is, and record the other insets over it*: the music
+    starts with the master. This is the way to bring the music in first and sing
+    to it: record the other insets while it plays in your headphones. It's the
+    only choice when nothing has been sung yet.
+
+The music becomes a take like any other (`takes/take-NNN.mp4`), so it is mixed
+in, played in the headphones while you record, and exported.
 
 ### Insets table
 

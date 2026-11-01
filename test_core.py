@@ -7,7 +7,7 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import numpy as np                                         # noqa: E402
 
-from app import capture, compose, media, project, templates, voice   # noqa: E402
+from app import capture, compose, media, music, project, templates, voice   # noqa: E402
 
 
 def make_clip(path, seconds, freq, colour):
@@ -153,6 +153,86 @@ class Export(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def tune(pitches, beat, harmonics, rate=media.RATE, seed=0):
+    """Notes (MIDI numbers, one per beat) as a harmonic tone with a little vibrato."""
+    rng = np.random.default_rng(seed)
+    out = []
+    for n in pitches:
+        t = np.arange(round(beat * rate)) / rate
+        f = 440 * 2 ** ((n - 69) / 12) * (1 + 0.004 * np.sin(2 * np.pi * 5.5 * t))
+        ph = 2 * np.pi * np.cumsum(f) / rate
+        env = np.minimum(1, np.minimum(t / 0.03, (t[-1] - t) / 0.05 + 0.2))
+        out.append(sum(np.sin(k * ph) / k ** 1.3 for k in range(1, harmonics + 1)) * env * 0.2)
+    return (np.concatenate(out) + 0.003 * rng.standard_normal(sum(map(len, out)))).astype(np.float32)
+
+
+class Music(unittest.TestCase):
+    """Lining music up with singing, and the picture video."""
+
+    @classmethod
+    def setUpClass(cls):
+        rng = np.random.default_rng(7)
+        cls.melody = list(rng.integers(55, 72, 40))
+        bass = [m - 12 - int(rng.integers(0, 2)) * 5 for m in cls.melody]
+        cls.music = tune(cls.melody, 0.5, 4, seed=1) + 0.8 * tune(bass, 0.5, 8, seed=2)
+        cls.voice = tune(cls.melody, 0.5, 12, seed=3)          # same tune, different timbre
+
+    def test_singing_starts_into_the_music(self):
+        cut = round(3.37 * media.RATE)
+        off, conf = music.find_offset(self.music, self.voice[cut:])
+        self.assertAlmostEqual(off, 3.37, delta=0.03)
+        self.assertGreater(conf, music.MIN_CONFIDENCE)
+
+    def test_music_starts_after_the_singing(self):
+        lead = np.zeros(round(2.0 * media.RATE), np.float32)
+        off, _ = music.find_offset(self.music, np.concatenate([lead, self.voice]))
+        self.assertAlmostEqual(off, -2.0, delta=0.03)
+        placed = music.shift(self.music, off)
+        self.assertAlmostEqual(len(placed) - len(self.music), round(2.0 * media.RATE), delta=0.03 * media.RATE)
+
+    def test_import_with_picture_lines_up(self):
+        d = tempfile.mkdtemp()
+        try:
+            pr = project.create("Music test", "02-side-by-side", d)
+            sung = os.path.join(d, "sung.mp4")
+            wav = os.path.join(d, "sung.wav")
+            media.write_wav(wav, self.voice[round(1.5 * media.RATE):])
+            music.make_video("", wav, sung)
+            project.import_video(pr, sung, "1")
+            song = os.path.join(d, "song.wav")
+            media.write_wav(song, self.music)
+            pic = os.path.join(d, "pic.png")
+            media.run_ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=300x400", "-frames:v", "1", pic])
+            t, off, conf = music.import_music(pr, song, "2", pic)
+            self.assertEqual(pr.in_slot("2").id, t.id)
+            self.assertAlmostEqual(off, 1.5, delta=0.03)
+            info = media.probe(pr.video(t))
+            self.assertEqual((info["width"], info["height"]), music.SIZE)
+            self.assertAlmostEqual(t.duration, len(self.music) / media.RATE - 1.5, delta=0.15)
+            self.assertEqual(t.note, "song.wav + pic.png")
+        finally:
+            shutil.rmtree(d)
+
+    def test_midi_renders(self):
+        try:
+            music.find_synth()
+        except media.MediaError:
+            self.skipTest("no FluidSynth / SoundFont")
+        trk = bytes([0, 0x90, 60, 100, 0x83, 0x60, 0x80, 60, 0, 0, 0xFF, 0x2F, 0])   # one C4, 480 ticks
+        mid = (b"MThd" + (6).to_bytes(4, "big") + bytes([0, 0, 0, 1, 1, 0xE0])
+               + b"MTrk" + len(trk).to_bytes(4, "big") + trk)
+        d = tempfile.mkdtemp()
+        try:
+            p = os.path.join(d, "c.mid")
+            with open(p, "wb") as f:
+                f.write(mid)
+            y = music.load_music(p, d)
+            self.assertGreater(float(np.abs(y).max()), 0.01)
+            self.assertGreater(len(y) / media.RATE, 0.4)
+        finally:
+            shutil.rmtree(d)
 
 
 class WindowsPaths(unittest.TestCase):

@@ -10,13 +10,13 @@ import time
 import numpy as np
 from PyQt6.QtCore import QObject, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QImage, QKeySequence, QPainter, QPen
-from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
+from PyQt6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
                              QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
                              QHeaderView, QInputDialog, QLabel, QLineEdit, QMainWindow,
-                             QMessageBox, QProgressBar, QProgressDialog, QPushButton, QSlider,
+                             QMessageBox, QProgressBar, QProgressDialog, QPushButton, QRadioButton, QSlider,
                              QSpinBox, QSplitter, QTableWidget, QVBoxLayout, QWidget)
 
-from . import capture, compose, config, media, project, templates, voice
+from . import capture, compose, config, media, music, project, templates, voice
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ICON = os.path.join(HERE, "icons", "boxapella.png")
@@ -247,6 +247,67 @@ class SettingsDialog(QDialog):
                 "keep_key": self.key.isChecked()}
 
 
+class MusicDialog(QDialog):
+    """Music (audio or MIDI) and an optional picture for one inset."""
+
+    def __init__(self, parent, slot_label: str, has_singing: bool):
+        super().__init__(parent)
+        self.setWindowTitle("Import music")
+        lay = QFormLayout(self)
+        lay.addRow(QLabel(f"Into inset: <b>{slot_label}</b>"))
+        self.src = self._file_row(lay, "Music", "audio or MIDI file",
+                                  "Music ({});;All files (*)".format(
+                                      " ".join("*" + e for e in music.AUDIO_EXTS + music.MIDI_EXTS)))
+        self.image = self._file_row(lay, "Picture", "none: a plain frame",
+                                    "Pictures ({});;All files (*)".format(
+                                        " ".join("*" + e for e in music.IMAGE_EXTS)))
+        self.line_up = QRadioButton("Fit it to the singing already recorded")
+        self.line_up.setToolTip("Finds where your singing sits in the music and cuts or pads the "
+                                "music's start to match. It assumes you sang at the music's tempo.")
+        as_is = QRadioButton("Bring it in as it is, and record the other insets over it")
+        as_is.setToolTip("The music starts with the master. Record the other insets while it "
+                         "plays in your headphones.")
+        group = QButtonGroup(self)
+        group.addButton(self.line_up)
+        group.addButton(as_is)
+        self.line_up.setEnabled(has_singing)
+        (self.line_up if has_singing else as_is).setChecked(True)
+        box = QVBoxLayout()
+        box.addWidget(self.line_up)
+        box.addWidget(as_is)
+        lay.addRow("Timing", box)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        bb.accepted.connect(self._ok)
+        bb.rejected.connect(self.reject)
+        lay.addRow(bb)
+        self.setMinimumWidth(560)
+
+    def _file_row(self, lay, label, placeholder, filt) -> QLineEdit:
+        edit = QLineEdit()
+        edit.setPlaceholderText(placeholder)
+        browse = QPushButton("Browse…")
+
+        def pick():
+            start = os.path.dirname(edit.text()) if edit.text() else os.path.expanduser("~")
+            p, _ = QFileDialog.getOpenFileName(self, label, start, filt)
+            if p:
+                edit.setText(p)
+        browse.clicked.connect(pick)
+        row = QHBoxLayout()
+        row.addWidget(edit)
+        row.addWidget(browse)
+        lay.addRow(label, row)
+        return edit
+
+    def _ok(self):
+        for edit, need in ((self.src, True), (self.image, False)):
+            p = edit.text().strip()
+            if (need or p) and not os.path.isfile(p):
+                QMessageBox.warning(self, "Import music", f"Can't find {p or 'the music file'}.")
+                return
+        self.accept()
+
+
 # ---------------------------------------------------------------- main window
 class MainWindow(QMainWindow):
     COLS = ["Inset", "Take", "Voice", "", "dB", "Offset", "Mute", "Flip"]
@@ -307,6 +368,7 @@ class MainWindow(QMainWindow):
         act("Open project folder", self._open_folder, menu=fm)
         fm.addSeparator()
         act("Import video into selected inset…", self._import, key="Ctrl+I", menu=fm)
+        act("Import music into selected inset…", self._import_music, key="Ctrl+M", menu=fm)
         act("Export master video…", self._export, key="Ctrl+E", menu=fm)
         fm.addSeparator()
         act("Delete takes not in an inset…", self._delete_unused, menu=fm)
@@ -323,6 +385,8 @@ class MainWindow(QMainWindow):
                            "Record a take into the selected inset (R); the other insets play in your headphones", "R")
         tb.addSeparator()
         act("Import video…", self._import, "Use an existing video file for the selected inset")
+        act("Import music…", self._import_music,
+            "Put music (audio or MIDI) with a picture in the selected inset, lined up with your singing")
         act("Export MP4…", self._export, "Render the master video")
 
         split = QSplitter(Qt.Orientation.Horizontal)
@@ -1051,6 +1115,45 @@ class MainWindow(QMainWindow):
             self._changed()
         self._with_progress(f"Importing {os.path.basename(p)}…",
                             lambda prog: project.import_video(self.pr, p, sid, prog), done)
+
+    def _import_music(self):
+        if not self.pr or self.state != "idle":
+            return
+        sid = self.stage.selected or self.pr.first_empty_slot()
+        slot = next((s for s in self.pr.get_template().slots if s.id == sid), None)
+        old = self.pr.in_slot(sid)
+        has_singing = any(t.id != (old.id if old else "") and not t.mute for t in self.pr.shown())
+        dlg = MusicDialog(self, slot.label if slot else sid, has_singing)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        src, image = dlg.src.text().strip(), dlg.image.text().strip()
+        line_up = dlg.line_up.isChecked()
+
+        def done(r, err):
+            if err:
+                QMessageBox.warning(self, "Import music", str(err))
+                return
+            t, offset, conf = r
+            self.voice_mtimes[t.id] = 0.0
+            self._fill_table()
+            self._changed()
+            name = os.path.basename(src)
+            if not line_up:
+                self.statusBar().showMessage(f"Imported {name} as {t.id} in inset {sid}.")
+            elif offset is None:
+                QMessageBox.information(
+                    self, "Import music",
+                    f"Imported {name} as {t.id}, but it couldn't be lined up with the singing "
+                    f"(no clear match; confidence {conf:.2f}). It starts with the other takes; "
+                    "slide it with the Offset column.")
+            else:
+                where = (f"cut {offset:.2f} s from its start" if offset >= 0
+                         else f"added {-offset:.2f} s of silence in front")
+                self.statusBar().showMessage(
+                    f"Imported {name} as {t.id} in inset {sid}, lined up with the singing: {where} "
+                    f"(confidence {conf:.1f}). Fine-tune with the Offset column if needed.", 20000)
+        self._with_progress(f"Importing {os.path.basename(src)}…",
+                            lambda prog: music.import_music(self.pr, src, sid, image, line_up, prog), done)
 
     def _export(self):
         if not self.pr or self.state != "idle":
