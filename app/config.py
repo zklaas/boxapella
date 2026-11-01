@@ -17,6 +17,7 @@ DEFAULTS = {
     "metronome": False,
     "mirror": True,
     "backing_level": 1.0,
+    "keep_key": True,          # VocalFry voices move by whole octaves only
     "export_size": "1920 × 1080",
     "last_project": "",
 }

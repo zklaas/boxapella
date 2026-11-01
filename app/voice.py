@@ -7,7 +7,9 @@ Two ways, both through the `vocalfry` program:
     "Send to Boxapella" button writes OUT.wav plus OUT's .voice.json, which
     Boxapella notices and mixes in.
 VocalFry's timing controls (speaking rate, pause length) would change the
-clip's length and break lip sync, so they are always held at 100 %.
+clip's length and break lip sync, so they are always held at 100 %.  With
+keep_key (Settings, on by default) VocalFry's "Keep key" is on as well: the
+pitch moves only by whole octaves, so the voice still sings in the song's key.
 """
 from __future__ import annotations
 
@@ -77,7 +79,7 @@ def presets() -> list[tuple[str, str]]:
     return found
 
 
-def render(src: str, out: str, preset: str = "", settings: str = "") -> None:
+def render(src: str, out: str, preset: str = "", settings: str = "", keep_key: bool = True) -> None:
     """Reshape src into out with a preset (name or file) or a settings JSON."""
     cmd = command()
     if not cmd:
@@ -87,13 +89,15 @@ def render(src: str, out: str, preset: str = "", settings: str = "") -> None:
         args += ["--preset", preset]
     if settings:
         args += ["--settings", settings]
+    if keep_key:
+        args += ["--set", "keep_key=1"]
     p = subprocess.run(args + KEEP_TIMING, capture_output=True, text=True,
                        encoding="utf-8", errors="replace", **_kw())
     if p.returncode != 0 or not os.path.exists(out):
         raise VoiceError((p.stderr or p.stdout).strip()[-800:] or "vocalfry render failed")
 
 
-def edit(src: str, out: str, settings: str = "") -> subprocess.Popen:
+def edit(src: str, out: str, settings: str = "", keep_key: bool = True) -> subprocess.Popen:
     """Open VocalFry's editor on src; it sends its result to out."""
     cmd = command()
     if not cmd:
@@ -101,5 +105,7 @@ def edit(src: str, out: str, settings: str = "") -> subprocess.Popen:
     args = cmd + ["--boxapella", out]
     if settings and os.path.exists(settings):
         args += ["--settings", settings]
+    if keep_key:
+        args.append("--keep-key")
     extra = _kw() if WINDOWS else {"start_new_session": True}
     return subprocess.Popen(args + [src], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **extra)

@@ -63,6 +63,16 @@ Each inset's audio can be reshaped with VocalFry (`~/Claude/VocalFry`):
   sending again.
 * *As recorded* goes back to the original.
 
+**Keeping the key:** a preset's pitch is usually not a whole number of octaves
+from your singing, so as it stands it would put the voice out of tune with the
+other takes. With *Settings → Timing & devices → VocalFry voices keep the key*
+on (the default), the voice moves to whichever octave of your own pitch is
+nearest the preset's. Intonation range, declination and vocal fry are held at
+neutral too, because they bend notes off the key. The voice's character (vocal
+tract, breathiness and the rest) is unchanged. VocalFry's editor opens with
+*Keep key* ticked; untick it there for a deliberately off-key voice. Voices that
+are already rendered keep their old pitch until you choose the preset again.
+
 VocalFry's *Speaking rate* and *Pause length* would change the take's length
 and break lip sync, so Boxapella always holds them at 100 %. *Send to
 Boxapella* always renders the whole take, even if you trimmed it in VocalFry.

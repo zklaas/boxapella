@@ -206,6 +206,12 @@ class SettingsDialog(QDialog):
         self.level = QDoubleSpinBox(minimum=0, maximum=2, singleStep=0.1, decimals=2)
         self.level.setValue(cfg.get("backing_level", 1.0))
         lay.addRow("Headphone backing level", self.level)
+        self.key = QCheckBox("VocalFry voices keep the key (pitch moves by whole octaves)")
+        self.key.setChecked(cfg.get("keep_key", True))
+        self.key.setToolTip("On: a voice is moved to the octave of your singing nearest its "
+                            "own pitch, so it stays in tune with the other takes. Off: "
+                            "VocalFry's exact pitch, which usually lands between keys.")
+        lay.addRow("Voices", self.key)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
@@ -237,7 +243,8 @@ class SettingsDialog(QDialog):
 
     def values(self) -> dict:
         return {"latency_ms": self.lat.value(), "video_offset_ms": self.vid.value(),
-                "mic_target": self.mic.text().strip(), "backing_level": self.level.value()}
+                "mic_target": self.mic.text().strip(), "backing_level": self.level.value(),
+                "keep_key": self.key.isChecked()}
 
 
 # ---------------------------------------------------------------- main window
@@ -725,8 +732,10 @@ class MainWindow(QMainWindow):
         part = out[:-4] + ".rendering.wav"
         self.statusBar().showMessage(f"Reshaping {t.id} with VocalFry ({t.voice.get('name')})…")
 
+        keep_key = self.cfg.get("keep_key", True)
+
         def work():
-            voice.render(self.pr.wav(t), part, preset=preset)
+            voice.render(self.pr.wav(t), part, preset=preset, keep_key=keep_key)
             os.replace(part, out)
 
         def done(_r, err):
@@ -749,7 +758,7 @@ class MainWindow(QMainWindow):
             settings = t.voice["path"]
         os.makedirs(self.pr.path("voices"), exist_ok=True)
         try:
-            voice.edit(self.pr.wav(t), self.pr.voice_wav(t), settings)
+            voice.edit(self.pr.wav(t), self.pr.voice_wav(t), settings, self.cfg.get("keep_key", True))
         except voice.VoiceError as e:
             QMessageBox.warning(self, "VocalFry", str(e))
             return
