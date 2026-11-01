@@ -16,7 +16,12 @@ import re
 import shutil
 import subprocess
 
-from .media import WINDOWS, _kw
+from .media import WINDOWS, _kw as _media_kw
+
+
+def _kw() -> dict:
+    """No console window on Windows, and VocalFry's output as UTF-8 either way."""
+    return dict(_media_kw(), env=dict(os.environ, PYTHONIOENCODING="utf-8"))
 
 VOCALFRY_DIR = os.path.expanduser("~/Claude/VocalFry")
 KEEP_TIMING = ["--set", "rate=100", "--set", "pause=100"]
