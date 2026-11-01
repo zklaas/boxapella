@@ -746,6 +746,15 @@ class MainWindow(QMainWindow):
             self.stage.selected = self.pr.get_template().slots[rows[0].row()].id
             self.stage.update()
 
+    def _select_next_empty(self) -> str:
+        """After a take lands in an inset: select the next empty one, ready to record.
+        Returns a note for the status bar ("" when every inset is full)."""
+        nxt = self.pr.first_empty_slot()
+        if self.pr.in_slot(nxt):
+            return ""
+        self._select_slot(nxt)
+        return f" Next empty inset: {nxt}."
+
     def _select_slot(self, sid):
         self.stage.selected = sid
         ids = [s.id for s in self.pr.get_template().slots]
@@ -1086,12 +1095,9 @@ class MainWindow(QMainWindow):
                                     "In VirtualBox, the Devices → Webcams passthrough is often this slow; "
                                     "passing the camera through as a USB device (Devices → USB) is usually "
                                     "much faster. `boxapella cameras --measure` checks the rate.")
-            nxt = self.pr.first_empty_slot()
-            self.statusBar().showMessage(f"Saved {take.id} ({fmt_time(take.duration)}) in inset {take.slot}."
-                                         + (f" Next empty inset: {nxt}." if not self.pr.in_slot(nxt) else ""))
-            if not self.pr.in_slot(nxt):
-                self.stage.selected = nxt
             self._fill_table()
+            nxt = self._select_next_empty()
+            self.statusBar().showMessage(f"Saved {take.id} ({fmt_time(take.duration)}) in inset {take.slot}." + nxt)
             self._changed()
         self._with_progress("Saving the take…", s.finalize, done)
 
@@ -1110,8 +1116,9 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Import", str(err))
                 return
             self.voice_mtimes[t.id] = 0.0
-            self.statusBar().showMessage(f"Imported {os.path.basename(p)} as {t.id} in inset {sid}.")
             self._fill_table()
+            nxt = self._select_next_empty()
+            self.statusBar().showMessage(f"Imported {os.path.basename(p)} as {t.id} in inset {sid}." + nxt)
             self._changed()
         self._with_progress(f"Importing {os.path.basename(p)}…",
                             lambda prog: project.import_video(self.pr, p, sid, prog), done)
@@ -1136,10 +1143,12 @@ class MainWindow(QMainWindow):
             t, offset, conf = r
             self.voice_mtimes[t.id] = 0.0
             self._fill_table()
+            nxt = self._select_next_empty()
             self._changed()
             name = os.path.basename(src)
             if not line_up:
-                self.statusBar().showMessage(f"Imported {name} as {t.id} in inset {sid}.")
+                self.statusBar().showMessage(f"Imported {name} as {t.id} in inset {sid}.{nxt} "
+                                             "Press Record to sing along with it.", 20000)
             elif offset is None:
                 QMessageBox.information(
                     self, "Import music",
@@ -1151,7 +1160,7 @@ class MainWindow(QMainWindow):
                          else f"added {-offset:.2f} s of silence in front")
                 self.statusBar().showMessage(
                     f"Imported {name} as {t.id} in inset {sid}, lined up with the singing: {where} "
-                    f"(confidence {conf:.1f}). Fine-tune with the Offset column if needed.", 20000)
+                    f"(confidence {conf:.1f}). Fine-tune with the Offset column if needed.{nxt}", 20000)
         self._with_progress(f"Importing {os.path.basename(src)}…",
                             lambda prog: music.import_music(self.pr, src, sid, image, line_up, prog), done)
 
