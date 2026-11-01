@@ -92,8 +92,7 @@ def main(argv=None) -> int:
         pr = project.load(a.project)
         t, off, conf = music.import_music(pr, a.music, a.slot or pr.first_empty_slot(), a.image,
                                           not a.no_line_up, _bar)
-        print(f"
-{t.id} ({t.duration:.2f} s) in inset {t.slot}")
+        print(f"\n{t.id} ({t.duration:.2f} s) in inset {t.slot}")
         if not a.no_line_up:
             print(f"lined up: music cut by {off:.3f} s (confidence {conf:.2f})" if off is not None else
                   f"not lined up: no clear match (confidence {conf:.2f})")

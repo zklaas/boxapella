@@ -168,6 +168,13 @@ def tune(pitches, beat, harmonics, rate=media.RATE, seed=0):
     return (np.concatenate(out) + 0.003 * rng.standard_normal(sum(map(len, out)))).astype(np.float32)
 
 
+class Launcher(unittest.TestCase):
+    def test_boxapella_py_compiles(self):
+        import py_compile
+        py_compile.compile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "boxapella.py"),
+                           doraise=True, cfile=os.path.join(tempfile.mkdtemp(), "b.pyc"))
+
+
 class Music(unittest.TestCase):
     """Lining music up with singing, and the picture video."""
 
