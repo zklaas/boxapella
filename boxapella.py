@@ -5,8 +5,8 @@
   boxapella new NAME [--template KEY] create a project under projects/
   boxapella templates                 list the layout templates
   boxapella cameras [--measure]       list cameras ffmpeg can record from (--measure: real frame rate)
-  boxapella import PROJECT VIDEO [--slot ID]
-                                      add a video file as a take
+  boxapella import PROJECT FILE [--slot ID]
+                                      add a video file or a picture as a take
   boxapella music PROJECT FILE [--image PIC] [--slot ID] [--no-line-up]
                                       add music (audio or MIDI) with a picture, lined up with the singing
   boxapella export PROJECT OUT.mp4 [--size 1920x1080|1280x720]
@@ -70,14 +70,16 @@ def main(argv=None) -> int:
         print(pr.folder)
         return 0
     if cmd == "import":
-        from app import project
+        from app import music, project
         ap = argparse.ArgumentParser(prog="boxapella import")
         ap.add_argument("project")
-        ap.add_argument("video")
+        ap.add_argument("file", help="video file or picture")
         ap.add_argument("--slot", default="")
         a = ap.parse_args(argv[1:])
         pr = project.load(a.project)
-        t = project.import_video(pr, a.video, a.slot or pr.first_empty_slot(), _bar)
+        slot = a.slot or pr.first_empty_slot()
+        t = (music.import_picture(pr, a.file, slot, _bar) if a.file.lower().endswith(music.IMAGE_EXTS)
+             else project.import_video(pr, a.file, slot, _bar))
         print(f"\n{t.id} ({t.duration:.2f} s) in inset {t.slot}")
         return 0
     if cmd == "music":

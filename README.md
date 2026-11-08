@@ -35,8 +35,14 @@ steady beat at the count-in tempo.
 
 Recording into an inset that already has a take keeps the old take as an
 alternate. Pick it again under *Take*. **File → Delete takes not in an inset…** cleans them up.
-**Import video…** puts an existing video file into the selected inset instead
-of recording.
+**Import video or picture…** (Ctrl+I) puts an existing file into the selected
+inset instead of recording:
+
+* A **video** comes in with its own sound. A video without sound is fine too.
+* A **picture** (PNG, JPEG, BMP, GIF, WebP) comes in by itself, silent, fitted into
+  the inset without cropping. It's a 5-second take, but it stays up however long
+  the other takes run, because an inset keeps showing a take's last frame. A GIF
+  shows its first frame.
 
 ### Music in an inset
 
@@ -49,7 +55,8 @@ for example the accompaniment you sang along to:
   finds the copy that the Lorenzo suite's `plugplay get-synth` downloads. Other
   locations can be set as `"fluidsynth"` and `"soundfont"` in the settings file.
 * **Picture** (optional): shown for the whole piece, fitted into the inset
-  without cropping. Without one, the inset shows a plain frame.
+  without cropping. Without one, the inset shows a plain frame. Leave *Music*
+  empty to bring in just the picture.
 * **Timing**, one of two:
   * *Fit it to the singing already recorded* finds where your singing sits in
     the music, by matching the notes sounding in each, and cuts or pads the

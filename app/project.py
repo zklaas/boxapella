@@ -132,6 +132,10 @@ class Project:
             return media.read_wav(self.voice_wav(t))
         return media.read_wav(self.wav(t))
 
+    def has_sound(self, t: Take) -> bool:
+        """False for a picture or a silent video: nothing to hear or to line music up with."""
+        return os.path.exists(self.wav(t)) and bool(np.abs(self.take_audio(t)).max(initial=0.0) > 0)
+
     def mix(self, exclude: str = "", normalise: bool = True) -> np.ndarray:
         """Every shown, unmuted take summed at its offset and gain."""
         parts = []
@@ -187,8 +191,8 @@ def import_video(pr: Project, src: str, slot: str = "", progress=None) -> Take:
     else:
         media.write_wav(wav, np.zeros(round(info["duration"] * media.RATE), np.float32))
     media.run_ffmpeg(["-i", src, "-i", wav, "-map", "0:v:0", "-map", "1:a:0",
-                      "-vf", f"fps={media.FPS},format=yuv420p", "-c:v", "libx264",
-                      "-preset", "veryfast", "-crf", "20", "-c:a", "aac", "-b:a", "192k",
+                      "-vf", f"fps={media.FPS},scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p",  # H.264 needs even sizes
+                      "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-c:a", "aac", "-b:a", "192k",
                       "-movflags", "+faststart", pr.video(t)], info["duration"], progress)
     t.duration = media.probe(pr.video(t))["duration"]
     media.make_proxy(pr.video(t), pr.proxy(t))

@@ -1,4 +1,5 @@
 """Music for an inset: an audio or MIDI file plus a still picture, lined up with the singing.
+Also a picture by itself: a short silent clip, whose last frame stays up (see import_picture).
 
 * Audio files (WAV, MP3, FLAC, ...) are decoded with ffmpeg.  MIDI files are
   rendered with FluidSynth: the `fluidsynth` program and a General MIDI
@@ -7,8 +8,8 @@
   sounds, frame by frame) is cross-correlated with the chroma of the singing
   already in the other insets.  The best match gives one constant offset, so it
   assumes the singing kept the music's tempo (e.g. it was sung along to it).
-* The picture is fitted, not cropped, onto a 1280 x 720 frame (letterboxed on the
-  template background colour); without a picture the frame is plain.
+* The picture is fitted, not cropped, onto a frame the shape of its inset (letterboxed
+  on the template background colour); without a picture the frame is plain.
 """
 from __future__ import annotations
 
@@ -28,6 +29,7 @@ IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp")
 SIZE = (1280, 720)
 HOP = 480                       # chroma frame: 10 ms at RATE
 MIN_CONFIDENCE = 1.3            # best match / best match elsewhere, below = not lined up
+PICTURE_SECONDS = 5.0           # a picture alone; playback and export hold a take's last frame
 
 SOUNDFONTS = ["/usr/share/sounds/sf2/FluidR3_GM.sf2", "/usr/share/sounds/sf2/default-GM.sf2",
               "/usr/share/soundfonts/default.sf2", "/usr/share/soundfonts/FluidR3_GM.sf2",
@@ -133,11 +135,17 @@ def shift(music: np.ndarray, offset: float) -> np.ndarray:
 
 
 # ---------------------------------------------------------------- picture video
-def make_video(image: str, wav: str, out: str, background: str = "#111116", progress=None) -> None:
+def make_video(image: str, wav: str, out: str, background: str = "#111116", progress=None,
+               size: tuple[int, int] = SIZE) -> None:
     """A still picture (or a plain frame) for as long as the audio, as H.264 + AAC."""
-    w, h = SIZE
+    w, h = size
     colour = "0x" + background.lstrip("#")[:6]
-    src = (["-loop", "1", "-framerate", str(media.FPS), "-i", image] if image else
+    if image.lower().endswith(".gif"):                  # the still-image reader below can't take a GIF
+        first = os.path.splitext(out)[0] + "-first.png"
+        media.run_ffmpeg(["-i", image, "-frames:v", "1", "-update", "1", first])
+        image = first
+    src = (["-f", "image2", "-pattern_type", "none", "-loop", "1", "-framerate", str(media.FPS), "-i", image]
+           if image else
            ["-f", "lavfi", "-i", f"color=c={colour}:s={w}x{h}:r={media.FPS}"])
     fit = (f"scale={w}:{h}:force_original_aspect_ratio=decrease,"
            f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color={colour},") if image else ""
@@ -147,6 +155,33 @@ def make_video(image: str, wav: str, out: str, background: str = "#111116", prog
                             "-tune", "stillimage", "-preset", "veryfast", "-crf", "20",
                             "-c:a", "aac", "-b:a", "192k", "-t", f"{secs:.3f}", "-movflags", "+faststart", out],
                      secs, progress)
+
+
+# ---------------------------------------------------------------- a picture by itself
+def inset_size(pr: project.Project, slot: str) -> tuple[int, int]:
+    """The inset's size in a 1920 x 1080 export (even numbers), so a picture fits it uncropped."""
+    tpl = pr.get_template()
+    s = next((s for s in tpl.slots if s.id == slot), None)
+    if s is None:
+        return SIZE
+    _, _, w, h = tpl.pixel_rect(s, 1920, 1080)
+    return max(2, w // 2 * 2), max(2, h // 2 * 2)
+
+
+def import_picture(pr: project.Project, image: str, slot: str, progress=None) -> project.Take:
+    """Put a picture alone into `slot` as a new silent take.
+
+    The clip is short: it doesn't stretch the master, and a take's last frame
+    stays in its inset however long the other takes run."""
+    step = (lambda a, b: (lambda f: progress(a + (b - a) * f))) if progress else (lambda a, b: None)
+    with tempfile.TemporaryDirectory(prefix="boxapella-picture-") as tmp:
+        wav, mp4 = os.path.join(tmp, "silence.wav"), os.path.join(tmp, "picture.mp4")
+        media.write_wav(wav, np.zeros(round(PICTURE_SECONDS * media.RATE), np.float32))
+        make_video(image, wav, mp4, pr.get_template().background, step(0.0, 0.5), inset_size(pr, slot))
+        t = project.import_video(pr, mp4, slot, step(0.5, 1.0))
+    t.note = os.path.basename(image)
+    pr.save()
+    return t
 
 
 # ---------------------------------------------------------------- all together
@@ -178,7 +213,7 @@ def import_music(pr: project.Project, src: str, slot: str, image: str = "", line
             music = music * (0.98 / peak)
         wav, mp4 = os.path.join(tmp, "music-placed.wav"), os.path.join(tmp, "music.mp4")
         media.write_wav(wav, music)
-        make_video(image, wav, mp4, pr.get_template().background, step(0.2, 0.55))
+        make_video(image, wav, mp4, pr.get_template().background, step(0.2, 0.55), inset_size(pr, slot))
         t = project.import_video(pr, mp4, slot, step(0.55, 1.0))
     t.note = os.path.basename(src) + (f" + {os.path.basename(image)}" if image else "")
     t.mirror = False

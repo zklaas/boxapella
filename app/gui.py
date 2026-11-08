@@ -255,7 +255,7 @@ class MusicDialog(QDialog):
         self.setWindowTitle("Import music")
         lay = QFormLayout(self)
         lay.addRow(QLabel(f"Into inset: <b>{slot_label}</b>"))
-        self.src = self._file_row(lay, "Music", "audio or MIDI file",
+        self.src = self._file_row(lay, "Music", "audio or MIDI file (empty: just the picture)",
                                   "Music ({});;All files (*)".format(
                                       " ".join("*" + e for e in music.AUDIO_EXTS + music.MIDI_EXTS)))
         self.image = self._file_row(lay, "Picture", "none: a plain frame",
@@ -300,10 +300,13 @@ class MusicDialog(QDialog):
         return edit
 
     def _ok(self):
-        for edit, need in ((self.src, True), (self.image, False)):
+        if not self.src.text().strip() and not self.image.text().strip():
+            QMessageBox.warning(self, "Import music", "Choose a music file, a picture, or both.")
+            return
+        for edit in (self.src, self.image):
             p = edit.text().strip()
-            if (need or p) and not os.path.isfile(p):
-                QMessageBox.warning(self, "Import music", f"Can't find {p or 'the music file'}.")
+            if p and not os.path.isfile(p):
+                QMessageBox.warning(self, "Import music", f"Can't find {p}.")
                 return
         self.accept()
 
@@ -367,7 +370,7 @@ class MainWindow(QMainWindow):
         act("Open project…", self._open_dialog, key="Ctrl+O", menu=fm)
         act("Open project folder", self._open_folder, menu=fm)
         fm.addSeparator()
-        act("Import video into selected inset…", self._import, key="Ctrl+I", menu=fm)
+        act("Import video or picture into selected inset…", self._import, key="Ctrl+I", menu=fm)
         act("Import music into selected inset…", self._import_music, key="Ctrl+M", menu=fm)
         act("Export master video…", self._export, key="Ctrl+E", menu=fm)
         fm.addSeparator()
@@ -384,7 +387,8 @@ class MainWindow(QMainWindow):
         self.rec_act = act("● Record", self._toggle_record,
                            "Record a take into the selected inset (R); the other insets play in your headphones", "R")
         tb.addSeparator()
-        act("Import video…", self._import, "Use an existing video file for the selected inset")
+        act("Import video or picture…", self._import,
+            "Use an existing video file or a picture for the selected inset")
         act("Import music…", self._import_music,
             "Put music (audio or MIDI) with a picture in the selected inset, lined up with your singing")
         act("Export MP4…", self._export, "Render the master video")
@@ -1105,12 +1109,16 @@ class MainWindow(QMainWindow):
     def _import(self):
         if not self.pr or self.state != "idle":
             return
-        p, _ = QFileDialog.getOpenFileName(self, "Import video", os.path.expanduser("~"),
-                                           "Video (*.mp4 *.mov *.mkv *.webm *.avi);;All files (*)")
-        if not p:
-            return
-        sid = self.stage.selected or self.pr.first_empty_slot()
+        video = "*.mp4 *.m4v *.mov *.mkv *.webm *.avi *.mpg *.mpeg *.wmv *.flv *.ts *.3gp *.ogv"
+        pics = " ".join("*" + e for e in music.IMAGE_EXTS)
+        p, _ = QFileDialog.getOpenFileName(self, "Import video or picture", os.path.expanduser("~"),
+                                           f"Video or picture ({video} {pics});;Video ({video});;"
+                                           f"Pictures ({pics});;All files (*)")
+        if p:
+            self._import_file(p, self.stage.selected or self.pr.first_empty_slot())
 
+    def _import_file(self, p: str, sid: str):
+        """Put a video or a picture, by itself, into inset `sid`."""
         def done(t, err):
             if err:
                 QMessageBox.warning(self, "Import", str(err))
@@ -1121,7 +1129,8 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Imported {os.path.basename(p)} as {t.id} in inset {sid}." + nxt)
             self._changed()
         self._with_progress(f"Importing {os.path.basename(p)}…",
-                            lambda prog: project.import_video(self.pr, p, sid, prog), done)
+                            lambda prog: (music.import_picture if p.lower().endswith(music.IMAGE_EXTS)
+                                          else project.import_video)(self.pr, p, sid, prog), done)
 
     def _import_music(self):
         if not self.pr or self.state != "idle":
@@ -1129,12 +1138,16 @@ class MainWindow(QMainWindow):
         sid = self.stage.selected or self.pr.first_empty_slot()
         slot = next((s for s in self.pr.get_template().slots if s.id == sid), None)
         old = self.pr.in_slot(sid)
-        has_singing = any(t.id != (old.id if old else "") and not t.mute for t in self.pr.shown())
+        has_singing = any(t.id != (old.id if old else "") and not t.mute and self.pr.has_sound(t)
+                          for t in self.pr.shown())
         dlg = MusicDialog(self, slot.label if slot else sid, has_singing)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         src, image = dlg.src.text().strip(), dlg.image.text().strip()
         line_up = dlg.line_up.isChecked()
+        if not src:
+            self._import_file(image, sid)
+            return
 
         def done(r, err):
             if err:

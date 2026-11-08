@@ -216,7 +216,7 @@ class Music(unittest.TestCase):
             self.assertEqual(pr.in_slot("2").id, t.id)
             self.assertAlmostEqual(off, 1.5, delta=0.03)
             info = media.probe(pr.video(t))
-            self.assertEqual((info["width"], info["height"]), music.SIZE)
+            self.assertEqual((info["width"], info["height"]), music.inset_size(pr, "2"))
             self.assertAlmostEqual(t.duration, len(self.music) / media.RATE - 1.5, delta=0.15)
             self.assertEqual(t.note, "song.wav + pic.png")
         finally:
@@ -240,6 +240,88 @@ class Music(unittest.TestCase):
             self.assertGreater(len(y) / media.RATE, 0.4)
         finally:
             shutil.rmtree(d)
+
+
+class AloneInAnInset(unittest.TestCase):
+    """A picture by itself, or a video by itself, with no music."""
+
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.d)
+        self.pr = project.create("Alone", "02-side-by-side", self.d)
+
+    def picture(self, name, size="301x401", colour="red"):
+        p = os.path.join(self.d, name)
+        media.run_ffmpeg(["-f", "lavfi", "-i", f"color=c={colour}:s={size}", "-frames:v", "1",
+                          "-update", "1", p])
+        return p
+
+    def test_pictures_of_every_kind(self):
+        for name in ("a.png", "b.jpg", "c.bmp", "d.gif", "e.webp", "100% me.png"):
+            with self.subTest(name):
+                t = music.import_picture(self.pr, self.picture(name), "1")
+                self.assertEqual(self.pr.in_slot("1").id, t.id)
+                self.assertEqual(t.note, name)
+                self.assertAlmostEqual(t.duration, music.PICTURE_SECONDS, delta=0.2)
+                self.assertTrue(os.path.exists(self.pr.proxy(t)))
+                self.assertFalse(self.pr.has_sound(t))
+
+    def test_picture_frame_has_the_insets_shape(self):
+        t = music.import_picture(self.pr, self.picture("p.png"), "1")
+        tpl = self.pr.get_template()
+        _, _, w, h = tpl.pixel_rect(tpl.slots[0], 1920, 1080)
+        info = media.probe(self.pr.video(t))
+        self.assertLessEqual(abs(info["width"] - w), 1)
+        self.assertLessEqual(abs(info["height"] - h), 1)
+
+    def test_music_with_picture_keeps_the_pictures_edges(self):
+        pic = os.path.join(self.d, "wide.png")                  # wide, with a blue strip at its left edge
+        media.run_ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=800x400,drawbox=x=0:y=0:w=40:h=400:color=blue:t=fill",
+                          "-frames:v", "1", "-update", "1", pic])
+        song = os.path.join(self.d, "song.wav")
+        media.write_wav(song, tune([60, 64, 67], 0.5, 4))
+        music.import_music(self.pr, song, "1", pic, line_up=False)
+        out = os.path.join(self.d, "out.mp4")
+        compose.export(self.pr, out, (1280, 720))
+        tpl = self.pr.get_template()
+        x, y, _, h = tpl.pixel_rect(tpl.slots[0], 1280, 720)
+        frame = media.still(out, 0.5, 1280, 720)
+        r, g, b = frame[((y + h // 2) * 1280 + x + 4) * 3:][:3]
+        self.assertGreater(b, 150)
+        self.assertLess(max(r, g), 80)
+
+    def test_silent_video_of_odd_size(self):
+        src = os.path.join(self.d, "odd.mp4")
+        media.run_ffmpeg(["-f", "lavfi", "-i", "testsrc=s=321x241:d=2:r=30", "-pix_fmt", "yuv444p", src])
+        t = project.import_video(self.pr, src, "1")
+        self.assertAlmostEqual(t.duration, 2.0, delta=0.2)
+        self.assertFalse(self.pr.has_sound(t))
+
+    def test_video_keeps_its_sound(self):
+        src = os.path.join(self.d, "v.mp4")
+        make_clip(src, 1, 440, 0.2)
+        self.assertTrue(self.pr.has_sound(project.import_video(self.pr, src, "1")))
+
+    def test_picture_stays_up_past_its_length(self):
+        red = self.picture("red.png", "640x360")
+        music.import_picture(self.pr, red, "1")
+        src = os.path.join(self.d, "v.mp4")
+        make_clip(src, 8, 440, 0.2)
+        project.import_video(self.pr, src, "2")
+        self.assertAlmostEqual(self.pr.duration(), 8.0, delta=0.2)
+        out = os.path.join(self.d, "out.mp4")
+        compose.export(self.pr, out, (1280, 720))
+        tpl = self.pr.get_template()
+        x, y, w, h = tpl.pixel_rect(tpl.slots[0], 1280, 720)
+        frame = media.still(out, 7.0, 1280, 720)
+        r, g, b = frame[((y + h // 2) * 1280 + x + w // 2) * 3:][:3]
+        self.assertGreater(r, 200)
+        self.assertLess(max(g, b), 60)
+
+    def test_music_fit_ignores_a_picture(self):
+        music.import_picture(self.pr, self.picture("p.png"), "1")
+        self.assertFalse(self.pr.has_sound(self.pr.in_slot("1")))
+        self.assertEqual(float(np.abs(self.pr.mix()).max()), 0.0)
 
 
 class WindowsPaths(unittest.TestCase):
