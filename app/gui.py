@@ -201,7 +201,9 @@ class SettingsDialog(QDialog):
         lay.addRow("Video offset", self.vid)
         self.mic = QLineEdit(cfg.get("mic_target", ""))
         self.mic.setPlaceholderText("default microphone")
-        self.mic.setToolTip("PipeWire source name or serial (pw-record --target); blank = default.")
+        self.mic.setToolTip("Part of the microphone's name or its number (see `boxapella devices`); "
+                            "blank = default." if media.PORTAUDIO else
+                            "PipeWire source name or serial (pw-record --target); blank = default.")
         lay.addRow("Microphone", self.mic)
         self.level = QDoubleSpinBox(minimum=0, maximum=2, singleStep=0.1, decimals=2)
         self.level.setValue(cfg.get("backing_level", 1.0))
@@ -590,7 +592,8 @@ class MainWindow(QMainWindow):
             os.startfile(path)              # noqa: S606 - opens Explorer
             return
         import subprocess
-        subprocess.Popen(["xdg-open", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        opener = "open" if media.MACOS else "xdg-open"      # Finder on macOS
+        subprocess.Popen([opener, path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def _changed(self, stills=True):
         if self.pr:

@@ -33,7 +33,11 @@ PICTURE_SECONDS = 5.0           # a picture alone; playback and export hold a ta
 
 SOUNDFONTS = ["/usr/share/sounds/sf2/FluidR3_GM.sf2", "/usr/share/sounds/sf2/default-GM.sf2",
               "/usr/share/soundfonts/default.sf2", "/usr/share/soundfonts/FluidR3_GM.sf2",
-              "/usr/share/sounds/sf2/TimGM6mb.sf2"]
+              "/usr/share/sounds/sf2/TimGM6mb.sf2",
+              # macOS (Homebrew, or a SoundFont placed in the user's Library)
+              "/opt/homebrew/share/soundfonts/default.sf2", "/usr/local/share/soundfonts/default.sf2",
+              "/opt/homebrew/share/fluid-synth/sf2/VintageDreamsWaves-v2.sf2",
+              "/usr/local/share/fluid-synth/sf2/VintageDreamsWaves-v2.sf2"]
 
 
 # ---------------------------------------------------------------- MIDI
@@ -49,10 +53,15 @@ def find_synth() -> tuple[str, str]:
     sf2 = cfg.get("soundfont") or ""
     if not sf2:
         cands = SOUNDFONTS + sorted(glob.glob(os.path.join(lorenzo, "*.sf2")))
+        if media.MACOS:
+            cands += sorted(glob.glob(os.path.expanduser("~/Library/Audio/Sounds/Banks/*.sf2")))
         sf2 = next((p for p in cands if os.path.exists(p)), "")
     if not exe or not sf2:
-        how = ("Install FluidSynth (sudo apt install fluidsynth fluid-soundfont-gm)" if not media.WINDOWS else
-               "Run `plugplay get-synth` (Lorenzo suite), or install FluidSynth and a General MIDI .sf2")
+        how = ("Run `plugplay get-synth` (Lorenzo suite), or install FluidSynth and a General MIDI .sf2"
+               if media.WINDOWS else
+               "Install FluidSynth (brew install fluid-synth) and put a General MIDI .sf2 in "
+               "~/Library/Audio/Sounds/Banks" if media.MACOS else
+               "Install FluidSynth (sudo apt install fluidsynth fluid-soundfont-gm)")
         missing = "the fluidsynth program" if not exe else "a General MIDI SoundFont (.sf2)"
         raise media.MediaError(f"Playing MIDI needs {missing}. {how}, or set \"fluidsynth\" / "
                                f"\"soundfont\" in {config.PATH}.")

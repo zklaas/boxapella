@@ -3,9 +3,10 @@
 ffmpeg is the binary bundled with the imageio-ffmpeg package in .venv (it can
 capture from Video4Linux cameras on Linux and DirectShow cameras on Windows),
 or a system ffmpeg if that's missing.
-Audio: on Linux PipeWire's pw-record / pw-play; on Windows one full-duplex
-PortAudio stream (the sounddevice package), so the headphones and the mic share
-a sample clock.
+Audio: on Linux PipeWire's pw-record / pw-play; on Windows and macOS one
+full-duplex PortAudio stream (the sounddevice package), so the headphones and the
+mic share a sample clock.
+Cameras: Video4Linux on Linux, DirectShow on Windows, AVFoundation on macOS.
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ import queue
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import wave
@@ -25,6 +27,8 @@ FPS = 30
 RATE = 48000
 TEST_CAMERA = "test"          # pseudo-device: ffmpeg's test pattern
 WINDOWS = os.name == "nt"
+MACOS = sys.platform == "darwin"
+PORTAUDIO = WINDOWS or MACOS      # no PipeWire: audio through sounddevice
 
 
 def _kw(low: bool = False) -> dict:
@@ -199,10 +203,42 @@ def _cameras_windows() -> list[dict]:
     return found
 
 
+def parse_avfoundation_devices(text: str) -> list[tuple[str, str]]:
+    """(index, name) of the video devices in `ffmpeg -f avfoundation
+    -list_devices true -i ""` output (the part before the audio devices).
+    Screen-capture entries ("Capture screen 0") are left out."""
+    out, video = [], False
+    for line in text.splitlines():
+        if "AVFoundation video devices" in line:
+            video = True
+            continue
+        if "AVFoundation audio devices" in line:
+            break
+        m = re.search(r"\]\s*\[(\d+)\]\s*(.+?)\s*$", line)
+        if video and m and not m[2].lower().startswith("capture screen"):
+            out.append((m[1], m[2]))
+    return out
+
+
+def _cameras_macos() -> list[dict]:
+    """AVFoundation cameras.  macOS asks for camera permission the first time;
+    ffmpeg then lets AVFoundation pick the pixel format at 1280x720."""
+    try:
+        text = subprocess.run([ffmpeg_exe(), "-hide_banner", "-f", "avfoundation",
+                               "-list_devices", "true", "-i", ""], capture_output=True,
+                              text=True, errors="replace", timeout=15).stderr
+    except (subprocess.SubprocessError, OSError):
+        return []
+    return [{"device": f"{idx}:none", "name": name, "api": "avfoundation",
+             "format": "", "size": "1280x720"} for idx, name in parse_avfoundation_devices(text)]
+
+
 def cameras() -> list[dict]:
     """Usable cameras with the input format and size to ask for."""
     if WINDOWS:
         return _cameras_windows()
+    if MACOS:
+        return _cameras_macos()
     found = []
     for dev in sorted(glob.glob("/dev/video*")):
         try:
@@ -271,11 +307,11 @@ def measure_camera(cam: dict, seconds: float = 3.0) -> float:
 
 def camera_clock(cam: dict | None) -> str:
     """Which clock a camera's capture timestamps are on: "mono" (Video4Linux kernel
-    timestamps = time.monotonic()), "wall" (DirectShow, stamped on arrival with
-    the wall clock = time.time()) or "none" (test pattern)."""
+    timestamps = time.monotonic()), "wall" (DirectShow and AVFoundation, stamped on
+    arrival with the wall clock = time.time()) or "none" (test pattern)."""
     if not cam or cam.get("device") == TEST_CAMERA:
         return "none"
-    return "wall" if cam.get("api") == "dshow" else "mono"
+    return "wall" if cam.get("api") in ("dshow", "avfoundation") else "mono"
 
 
 def camera_input(cam: dict | None) -> list[str]:
@@ -286,6 +322,9 @@ def camera_input(cam: dict | None) -> list[str]:
     """
     if not cam or cam.get("device") == TEST_CAMERA:
         return ["-re", "-f", "lavfi", "-i", f"testsrc2=size=1280x720:rate={FPS}"]
+    if cam.get("api") == "avfoundation":
+        return ["-f", "avfoundation", "-use_wallclock_as_timestamps", "1",
+                "-video_size", cam["size"], "-framerate", str(FPS), "-i", cam["device"], "-copyts"]
     if cam.get("api") == "dshow":
         fmt = ["-vcodec", "mjpeg"] if cam.get("kind") == "vcodec" else ["-pixel_format", cam["format"]]
         return ["-f", "dshow", "-rtbufsize", "512M", "-use_wallclock_as_timestamps", "1"] + fmt + [
@@ -426,7 +465,7 @@ class SoundDeviceIO:
         try:
             import sounddevice as sd
         except ImportError as e:
-            raise MediaError("The sounddevice package is needed (run install.ps1).") from e
+            raise MediaError("The sounddevice package is needed (run install.ps1 on Windows, install-macos.sh on macOS).") from e
         device = (_input_device(sd, self.target), None)
         last = None
         for ch_out in (2, 1):
@@ -540,7 +579,7 @@ class SoundDevicePlayer:
         try:
             import sounddevice as sd
         except ImportError as e:
-            raise MediaError("The sounddevice package is needed (run install.ps1).") from e
+            raise MediaError("The sounddevice package is needed (run install.ps1 on Windows, install-macos.sh on macOS).") from e
         self.y, self.pos = read_wav(path), 0
         self._begun.clear()
 
@@ -572,13 +611,14 @@ class SoundDevicePlayer:
 
 def make_player():
     """Something that plays a WAV file: play(path), started, playing(), stop()."""
-    return SoundDevicePlayer() if WINDOWS else Player()
+    return SoundDevicePlayer() if PORTAUDIO else Player()
 
 
 def duplex(target: str = ""):
-    """(microphone, headphones) for recording against a backing.  On Windows both
-    are one PortAudio stream with a shared clock; on Linux pw-record + pw-play."""
-    if WINDOWS:
+    """(microphone, headphones) for recording against a backing.  On Windows and
+    macOS both are one PortAudio stream with a shared clock; on Linux pw-record +
+    pw-play."""
+    if PORTAUDIO:
         io = SoundDeviceIO(target)
         return io, _DuplexPlayer(io)
     return MicReader(target), Player()
@@ -586,13 +626,13 @@ def duplex(target: str = ""):
 
 def audio_devices() -> list[str]:
     """Human-readable list of audio inputs/outputs (for `boxapella devices`)."""
-    if not WINDOWS:
+    if not PORTAUDIO:
         return ["Linux: PipeWire's default microphone and output (choose them in Settings → Sound);",
                 "a specific source can be named in Boxapella's Settings → Timing & devices → Microphone."]
     try:
         import sounddevice as sd
     except ImportError:
-        return ["sounddevice isn't installed (run install.ps1)."]
+        return ["sounddevice isn't installed (run install.ps1 on Windows, install-macos.sh on macOS)."]
     lines = []
     for i, d in enumerate(sd.query_devices()):
         kind = "/".join(k for k, n in (("in", d["max_input_channels"]), ("out", d["max_output_channels"])) if n)

@@ -1,11 +1,17 @@
-"""Settings in ~/.config/boxapella/settings.json (Windows: %APPDATA%\\Boxapella)."""
+"""Settings in ~/.config/boxapella/settings.json (Windows: %APPDATA%\\Boxapella;
+macOS: ~/Library/Application Support/Boxapella)."""
 from __future__ import annotations
 
 import json
 import os
+import sys
 
-CONFIG_DIR = (os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Boxapella")
-              if os.name == "nt" else os.path.expanduser("~/.config/boxapella"))
+if os.name == "nt":
+    CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Boxapella")
+elif sys.platform == "darwin":
+    CONFIG_DIR = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Boxapella")
+else:
+    CONFIG_DIR = os.path.expanduser("~/.config/boxapella")
 PATH = os.path.join(CONFIG_DIR, "settings.json")
 DEFAULTS = {
     "latency_ms": 0.0,         # headphones out + mic in (Calibrate finds it)

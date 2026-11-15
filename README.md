@@ -5,7 +5,7 @@ then record again into the next inset while the earlier takes play in your
 headphones, and so on. All the insets play together as one master video, with
 every voice mixed into one soundtrack.
 
-Runs on Linux and Windows; see [WINDOWS.md](WINDOWS.md) for installing on Windows.
+Runs on Linux, Windows and macOS; see [WINDOWS.md](WINDOWS.md) and [MACOS.md](MACOS.md) for installing on Windows and on a Mac.
 
     boxapella [PROJECT_FOLDER]          the app
     boxapella new NAME [--template KEY] create a project under projects/
@@ -207,3 +207,10 @@ first. `pw-play` uses a 200 ms buffer.
 * Microphone: the VM's sound card only hears anything if VirtualBox's audio
   input is on (**Devices → Audio → Audio Input**, or VM Settings → Audio →
   *Enable Audio Input*). Otherwise takes are silent.
+
+## Windows and macOS
+
+The same code runs on Windows and macOS. To install it there:
+
+* **Windows:** see [WINDOWS.md](WINDOWS.md) (`install.ps1`).
+* **macOS:** see [MACOS.md](MACOS.md) (`install-macos.sh`).

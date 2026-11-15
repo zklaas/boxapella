@@ -387,12 +387,12 @@ class WindowsPaths(unittest.TestCase):
 
         fake = types.ModuleType("sounddevice")
         fake.Stream = FakeStream
-        old_mod, old_win = sys.modules.get("sounddevice"), media.WINDOWS
-        sys.modules["sounddevice"], media.WINDOWS = fake, True
+        old_mod, old_pa = sys.modules.get("sounddevice"), media.PORTAUDIO
+        sys.modules["sounddevice"], media.PORTAUDIO = fake, True   # the Windows / macOS audio path
         try:
             ms, conf = capture.calibrate()
         finally:
-            media.WINDOWS = old_win
+            media.PORTAUDIO = old_pa
             if old_mod is None:
                 sys.modules.pop("sounddevice", None)
             else:
