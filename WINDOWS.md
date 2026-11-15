@@ -52,4 +52,4 @@ Timing & devices → Microphone.
 
 Projects live in the `projects\` folder inside the app folder, as on Linux.
 
-If something doesn't work, please write to zklaas@yahoo.ca.
+If something doesn't work, please write to zklaastest-testing@yahoo.com.

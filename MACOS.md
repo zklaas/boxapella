@@ -42,4 +42,4 @@ macOS asks for **camera** and **microphone** permission the first time Boxapella
 
 To remove it: delete the folder, `~/Applications/Boxapella.app` and `~/.local/bin/boxapella`.
 
-If something doesn't work, please write to zklaas@yahoo.ca.
+If something doesn't work, please write to zklaastest-testing@yahoo.com.
