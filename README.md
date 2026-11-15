@@ -17,6 +17,8 @@ The first time, Windows or macOS asks before opening it; the
 [release page](https://github.com/zklaas/boxapella/releases/latest) says what to click.
 To install from the source code at the command line instead, see below.
 
+**Optional: VocalFry.** The *Voice* column and **✎** button reshape an inset's voice with [VocalFry](https://github.com/zklaas/vocalfry), a separate program. Install it too if you want them (its download or its installer); Boxapella finds it by itself. Everything else works without it.
+
 Runs on Linux, Windows and macOS; see [WINDOWS.md](WINDOWS.md) and [MACOS.md](MACOS.md) for installing on Windows and on a Mac.
 
     boxapella [PROJECT_FOLDER]          the app
@@ -98,7 +100,11 @@ in, played in the headphones while you record, and exported.
 
 ## Voices: VocalFry
 
-Each inset's audio can be reshaped with VocalFry (`~/Claude/VocalFry`):
+Each inset's audio can be reshaped with [VocalFry](https://github.com/zklaas/vocalfry), a
+separate program. Install it too (its download, or `git clone` plus its installer);
+Boxapella finds it through the `vocalfry` command, the installed VocalFry app, or a
+`VocalFry` folder next to Boxapella's. Without it, the Voice column and ✎ are greyed out
+and everything else works. With it:
 
 * **Preset**: choose one in the *Voice* column. VocalFry renders it in the
   background, and the reshaped voice is what you hear in playback, in the

@@ -8,6 +8,8 @@
 
 Nothing else is needed: Python and everything Boxapella uses are inside.
 
+**Optional: VocalFry.** The *Voice* column and **✎** button reshape an inset's voice with [VocalFry](https://github.com/zklaas/vocalfry), a separate program. Install it too if you want them (its download or its installer); Boxapella finds it by itself. Everything else works without it.
+
 ### The first time you open it
 
 These downloads are not signed with a paid developer certificate, so your computer

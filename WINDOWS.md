@@ -38,7 +38,7 @@ Check it:
 | camera | Video4Linux (`/dev/video0`), kernel timestamps | DirectShow (`video=Camera name`), wall-clock timestamps |
 | sound | pw-record + pw-play (two programs, clocks matched by timing) | one full-duplex PortAudio stream: the backing's start is known to the sample |
 | settings | `~/.config/boxapella/` | `%APPDATA%\Boxapella\` |
-| VocalFry | `vocalfry` on PATH or `~/Claude/VocalFry` | `vocalfry` on PATH, or a `VocalFry` folder beside the `boxapella` folder |
+| VocalFry | `vocalfry` on PATH, or a `VocalFry` folder beside the `boxapella` folder | `vocalfry` on PATH, or a `VocalFry` folder beside the `boxapella` folder |
 
 Because playback and recording share one clock on Windows, takes should line up
 more consistently than in the Linux VM. Still run **Settings → Timing & devices
