@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import re
 from dataclasses import asdict, dataclass, field
 
@@ -18,7 +19,16 @@ import numpy as np
 from . import media, templates
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PROJECTS_DIR = os.path.join(HERE, "projects")
+def _documents(app: str) -> str:
+    """A folder of the user's own for Boxapella's work: Documents/Boxapella (or ~/Boxapella)."""
+    docs = os.path.join(os.path.expanduser("~"), "Documents")
+    return os.path.join(docs if os.path.isdir(docs) else os.path.expanduser("~"), app)
+
+
+# Projects live beside the program when run from its folder; a downloaded (packaged)
+# program's folder is read-only or replaced on update, so they go to Documents.
+PROJECTS_DIR = (_documents("Boxapella") if getattr(sys, "frozen", False)
+                else os.path.join(HERE, "projects"))
 
 
 @dataclass

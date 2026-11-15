@@ -42,6 +42,9 @@ def command() -> list[str] | None:
         exe = local
     if exe:
         return [exe]
+    for app in _vocalfry_apps():           # the downloadable VocalFry program
+        if os.path.isfile(app) and os.access(app, os.X_OK):
+            return [app]
     for folder in _vocalfry_dirs():
         py = os.path.join(folder, ".venv", "Scripts" if WINDOWS else "bin",
                           "python.exe" if WINDOWS else "python")
@@ -49,6 +52,18 @@ def command() -> list[str] | None:
         if os.path.exists(py) and os.path.exists(script):
             return [py, script]
     return None
+
+
+def _vocalfry_apps() -> list[str]:
+    """Where the downloadable VocalFry program installs itself."""
+    home = os.path.expanduser("~")
+    if WINDOWS:
+        return [os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "VocalFry", "VocalFry.exe")]
+    import glob
+    return ["/Applications/VocalFry.app/Contents/MacOS/VocalFry",
+            os.path.join(home, "Applications", "VocalFry.app", "Contents", "MacOS", "VocalFry")] + \
+        sorted(glob.glob(os.path.join(home, "Applications", "VocalFry*.AppImage"))) + \
+        sorted(glob.glob(os.path.join(home, "Downloads", "VocalFry*.AppImage")))
 
 
 def _vocalfry_dirs() -> list[str]:

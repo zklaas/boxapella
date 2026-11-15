@@ -5,6 +5,18 @@ then record again into the next inset while the earlier takes play in your
 headphones, and so on. All the insets play together as one master video, with
 every voice mixed into one soundtrack.
 
+## Download
+
+Ready-to-run downloads (executable programs), with nothing else to install:
+
+* **Windows:** [Boxapella-Setup-Windows.exe](https://github.com/zklaas/boxapella/releases/latest/download/Boxapella-Setup-Windows.exe)
+* **macOS** (Apple silicon): [Boxapella-macOS.dmg](https://github.com/zklaas/boxapella/releases/latest/download/Boxapella-macOS.dmg)
+* **Linux:** [Boxapella-Linux-x86_64.AppImage](https://github.com/zklaas/boxapella/releases/latest/download/Boxapella-Linux-x86_64.AppImage)
+
+The first time, Windows or macOS asks before opening it; the
+[release page](https://github.com/zklaas/boxapella/releases/latest) says what to click.
+To install from the source code at the command line instead, see below.
+
 Runs on Linux, Windows and macOS; see [WINDOWS.md](WINDOWS.md) and [MACOS.md](MACOS.md) for installing on Windows and on a Mac.
 
     boxapella [PROJECT_FOLDER]          the app
