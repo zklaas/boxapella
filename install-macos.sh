@@ -3,7 +3,7 @@
 #
 #   bash install-macos.sh
 #
-# Creates .venv in this folder with PyQt6 numpy sounddevice imageio-ffmpeg, writes a `boxapella` command into
+# Creates .venv in this folder with PyQt6 numpy sounddevice imageio-ffmpeg, writes the `boxapella` command into
 # ~/.local/bin, and puts a Boxapella app (with its icon) in ~/Applications, so it
 # opens from Launchpad, Spotlight or the Dock.
 set -euo pipefail

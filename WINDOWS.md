@@ -1,10 +1,23 @@
 # Boxapella on Windows
 
-The same code runs on Windows and Linux. Install with PowerShell:
+The same code runs on Windows, macOS and Linux.
+
+## Where to type the commands
+
+Everything below is typed into **PowerShell**: open the Start menu, type *PowerShell* and
+press Enter. (On Windows 11, *Terminal* opens PowerShell too, and the Command Prompt also
+works for these commands.) Press Enter after each line.
+
+## Install
 
     git clone https://github.com/zklaas/boxapella.git
     cd boxapella
     powershell -ExecutionPolicy Bypass -File install.ps1
+
+**Without git** (`winget install --id Git.Git -e` installs it): on
+https://github.com/zklaas/boxapella click **Code > Download ZIP**, unpack it, open the
+unpacked folder (`boxapella-main`) in File Explorer, click the address bar, type `powershell`
+and press Enter; then run only the last line above.
 
 That creates `.venv` (PyQt6, numpy, imageio-ffmpeg, sounddevice), a `boxapella`
 command on your PATH (open a new terminal first), and a **Boxapella** Start-menu entry.
@@ -38,3 +51,5 @@ name as listed by `boxapella devices` (for example `Realtek`) into Settings →
 Timing & devices → Microphone.
 
 Projects live in the `projects\` folder inside the app folder, as on Linux.
+
+If something doesn't work, please write to zklaas@yahoo.ca.
