@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 import tempfile
 import threading
 import time
 
 import numpy as np
-from PyQt6.QtCore import QObject, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QImage, QKeySequence, QPainter, QPen
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
                              QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
@@ -34,6 +35,9 @@ def fmt_time(t: float) -> str:
     return f"{int(t // 60)}:{t % 60:04.1f}"
 
 
+FULL_MS, LIGHT_MS = 33, 83          # picture refresh: ~30 / ~12 a second
+
+
 # ---------------------------------------------------------------- stage
 class Stage(QWidget):
     """The master picture: template background, each inset's current frame, borders."""
@@ -52,9 +56,16 @@ class Stage(QWidget):
         self.selected = ""
         self.rec_slot = ""
         self.banner = ""                 # big text over the picture (count-in)
-        t = QTimer(self, interval=33)
+        self.light = False               # light picture: ~12 redraws a second, changed insets only
+        self.dirty_slots: set[str] = set()
+        self.timer = t = QTimer(self, interval=33)
         t.timeout.connect(self._tick)
         t.start()
+
+    def set_light(self, on: bool):
+        self.light = on
+        self.timer.setInterval(LIGHT_MS if on else FULL_MS)
+        self.update()
 
     def set_project(self, pr):
         self.pr = pr
@@ -84,16 +95,32 @@ class Stage(QWidget):
         with self.lock:
             self.frames[sid] = img
             self.dirty = True
+            self.dirty_slots.add(sid)
 
     def clear_frame(self, sid: str):
         with self.lock:
             self.frames.pop(sid, None)
             self.dirty = True
+            self.dirty_slots.add(sid)
 
     def _tick(self):
-        if self.dirty:
+        if not self.dirty:
+            return
+        with self.lock:
             self.dirty = False
+            sids, self.dirty_slots = self.dirty_slots, set()
+        if not self.light or not self.tpl:
             self.update()
+            return
+        c = self.canvas()
+        W, H = int(c.width()), int(c.height())
+        for sid in sids:                 # repaint just the insets whose picture changed
+            s = self.tpl.slot(sid)
+            if s is None:
+                self.update()
+                return
+            x, y, w, h = self.tpl.pixel_rect(s, W, H)
+            self.update(QRect(int(c.left() + x) - 2, int(c.top() + y) - 2, int(w) + 5, int(h) + 5))
 
     def resizeEvent(self, e):
         self.bg = self.fg = None
@@ -382,6 +409,15 @@ class MainWindow(QMainWindow):
         sm = self.menuBar().addMenu("&Settings")
         act("Timing && devices…", self._settings, menu=sm)
         act("Open my templates folder", self._open_templates, menu=sm)
+        if sys.platform.startswith("linux"):
+            sm.addSeparator()
+            self.light_act = sm.addAction("Light picture (smoother sound in a VM)")
+            self.light_act.setCheckable(True)
+            self.light_act.setChecked(config.light_picture(self.cfg))
+            self.light_act.setToolTip("Redraw the picture about 12 times a second, and only the insets "
+                                      "that changed. In a virtual machine, busy screen updates can make "
+                                      "the sound stutter. Recordings and the exported MP4 are not affected.")
+            self.light_act.toggled.connect(self._set_light)
 
         self.play_act = act("▶ Play", self._toggle_play, "Play the master from the playhead (Space)", "Space")
         act("⏮", lambda: self._seek(0), "Back to the start (Home)", "Home")
@@ -400,6 +436,7 @@ class MainWindow(QMainWindow):
         ll = QVBoxLayout(left)
         ll.setContentsMargins(4, 4, 4, 4)
         self.stage = Stage()
+        self.stage.set_light(config.light_picture(self.cfg))
         self.stage.slotClicked.connect(self._select_slot)
         ll.addWidget(self.stage, 1)
         pos = QHBoxLayout()
@@ -1227,6 +1264,11 @@ class MainWindow(QMainWindow):
             self.pr.takes.remove(t)
         self.pr.save()
         self._fill_table()
+
+    def _set_light(self, on):
+        self.cfg["picture"] = "light" if on else "full"
+        config.save(self.cfg)
+        self.stage.set_light(on)
 
     def _settings(self):
         dlg = SettingsDialog(self, self.cfg)
