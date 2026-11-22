@@ -466,15 +466,17 @@ class SoundDeviceIO:
             import sounddevice as sd
         except ImportError as e:
             raise MediaError("The sounddevice package is needed (run install.ps1 on Windows, install-macos.sh on macOS).") from e
-        device = (_input_device(sd, self.target), None)
         last = None
-        for ch_out in (2, 1):
-            try:
-                self.stream = sd.Stream(samplerate=RATE, channels=(1, ch_out), dtype="float32",
-                                        device=device, latency="high", callback=self._cb)
+        for device in _duplex_devices(sd, self.target):
+            for ch_out in (2, 1):
+                try:
+                    self.stream = sd.Stream(samplerate=RATE, channels=(1, ch_out), dtype="float32",
+                                            device=device, latency="high", callback=self._cb)
+                    break
+                except Exception as e:      # noqa: BLE001 - try mono output, then the next devices
+                    last = e
+            if self.stream is not None:
                 break
-            except Exception as e:          # noqa: BLE001 - try mono output, then report
-                last = e
         if self.stream is None:
             raise MediaError(f"Could not open the microphone and headphones: {last}")
         self.stream.start()
@@ -525,20 +527,42 @@ class SoundDeviceIO:
         return np.concatenate(self.chunks) if self.chunks else np.zeros(0, np.float32)
 
 
-def _input_device(sd, target: str):
+def _duplex_devices(sd, target: str) -> list:
+    """(input, output) pairs to try for the duplex stream, best first.
+
+    WASAPI first: some laptop microphones (Intel Smart Sound arrays) give only
+    silence through MME, PortAudio's default API on Windows.  Then the defaults,
+    as before."""
+    pairs = []
+    try:
+        api = next(i for i, h in enumerate(sd.query_hostapis()) if h["name"] == "Windows WASAPI")
+        h = sd.query_hostapis(api)
+        mic = _input_device(sd, target, api) if target else h["default_input_device"]
+        if mic is not None and mic >= 0 and h["default_output_device"] >= 0:
+            pairs.append((mic, h["default_output_device"]))
+    except (StopIteration, AttributeError, KeyError, TypeError):
+        pass                                # no WASAPI (or a test stand-in)
+    pairs.append((_input_device(sd, target), None))
+    return pairs
+
+
+def _input_device(sd, target: str, api: int | None = None):
     """A microphone by (part of) its name, or an index; None = the default.
 
     Windows lists each device once per host API (MME, WASAPI, ...), and a duplex
-    stream needs both ends on one API, so take the match on the default API."""
+    stream needs both ends on one API, so take the match on `api` (None if it has
+    none), or else on the default API."""
     if not target:
         return None
     if target.isdigit():
-        return int(target)
+        return int(target) if api is None or sd.query_devices(int(target))["hostapi"] == api else None
     want = target.lower()
     hits = [i for i, d in enumerate(sd.query_devices())
             if d["max_input_channels"] > 0 and want in d["name"].lower()]
     if not hits:
         raise MediaError(f"No microphone matching {target!r} (see `boxapella devices`).")
+    if api is not None:
+        return next((i for i in hits if sd.query_devices(i)["hostapi"] == api), None)
     default_api = sd.query_devices(kind="output")["hostapi"]
     same = [i for i in hits if sd.query_devices(i)["hostapi"] == default_api]
     return (same or hits)[0]
